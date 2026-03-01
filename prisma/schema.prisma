@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  CLIENT
+  PROVIDER
+  ADMIN
+}
+
+enum SubscriptionTier {
+  BASIC
+  PRO
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  AWARDED
+  IN_PROGRESS
+  COMPLETED
+  REVIEWED
+  CANCELLED
+  EXPIRED
+  DISPUTED
+}
+
+enum BidStatus {
+  PENDING
+  AWARDED
+  REJECTED
+  WITHDRAWN
+}
+
+enum NotificationType {
+  NEW_BID
+  JOB_AWARDED
+  JOB_CANCELLED
+  BID_REJECTED
+  MESSAGE_RECEIVED
+  REVIEW_RECEIVED
+  SUBSCRIPTION_EXPIRING
+  TRIAL_ENDING
+  NEW_JOB_PREMIUM
+  NEW_JOB_STANDARD
+}
+
+// ============================================================
+// AUTH (NextAuth v5)
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String
+  phone         String?
+  avatarUrl     String?
+  role          UserRole  @default(CLIENT)
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  clientProfile   ClientProfile?
+  providerProfile ProviderProfile?
+  sentMessages    Message[]       @relation("SentMessages")
+  notifications   Notification[]
+  adminActions    AdminAction[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// CLIENT PROFILE
+// ============================================================
+
+model ClientProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  city      String?
+  zipCode   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs Job[]
+}
+
+// ============================================================
+// PROVIDER PROFILE
+// ============================================================
+
+model ProviderProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  companyName   String?
+  description   String?  @db.Text
+  phone         String
+  whatsappPhone String?
+  city          String
+  zipCode       String
+  serviceRadius Int      @default(25)
+  isVerified    Boolean  @default(false)
+  averageRating Float    @default(0)
+  totalReviews  Int      @default(0)
+  completedJobs Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription    Subscription?
+  categories      ProviderCategory[]
+  bids            Bid[]
+  reviews         Review[]
+  portfolioImages PortfolioImage[]
+
+  @@index([city])
+  @@index([zipCode])
+  @@index([averageRating])
+}
+
+model ProviderCategory {
+  id         String @id @default(cuid())
+  providerId String
+  categoryId String
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, categoryId])
+}
+
+model PortfolioImage {
+  id         String   @id @default(cuid())
+  providerId String
+  url        String
+  caption    String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// SUBSCRIPTION
+// ============================================================
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  providerId           String             @unique
+  tier                 SubscriptionTier   @default(BASIC)
+  status               SubscriptionStatus @default(TRIALING)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  trialEndsAt          DateTime?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  monthlyAwardsUsed    Int                @default(0)
+  monthlyAwardsLimit   Int                @default(5)
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([stripeCustomerId])
+}
+
+// ============================================================
+// CATEGORIES
+// ============================================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String?
+  description String?
+  parentId    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  parent    Category?          @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[]         @relation("CategoryTree")
+  providers ProviderCategory[]
+  jobs      Job[]
+
+  @@index([slug])
+  @@index([parentId])
+}
+
+// ============================================================
+// JOBS
+// ============================================================
+
+model Job {
+  id                 String    @id @default(cuid())
+  clientId           String
+  categoryId         String
+  title              String
+  description        String    @db.Text
+  zipCode            String
+  city               String
+  budgetMin          Float?
+  budgetMax          Float?
+  desiredDate        DateTime?
+  urgency            String?
+  status             JobStatus @default(DRAFT)
+  premiumAccessUntil DateTime?
+  expiresAt          DateTime?
+  awardedBidId       String?   @unique
+  publishedAt        DateTime?
+  awardedAt          DateTime?
+  completedAt        DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  client     ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category   Category      @relation(fields: [categoryId], references: [id])
+  awardedBid Bid?          @relation("AwardedBid", fields: [awardedBidId], references: [id])
+  bids       Bid[]         @relation("JobBids")
+  images     JobImage[]
+  messages   Message[]
+  reviews    Review[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([city])
+  @@index([clientId])
+  @@index([premiumAccessUntil])
+  @@index([createdAt])
+}
+
+model JobImage {
+  id        String   @id @default(cuid())
+  jobId     String
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// BIDS
+// ============================================================
+
+model Bid {
+  id            String    @id @default(cuid())
+  jobId         String
+  providerId    String
+  amount        Float
+  message       String    @db.Text
+  estimatedDays Int?
+  status        BidStatus @default(PENDING)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  job        Job             @relation("JobBids", fields: [jobId], references: [id], onDelete: Cascade)
+  provider   ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  awardedJob Job?            @relation("AwardedBid")
+
+  @@unique([jobId, providerId])
+  @@index([jobId])
+  @@index([providerId])
+  @@index([status])
+}
+
+// ============================================================
+// MESSAGES
+// ============================================================
+
+model Message {
+  id        String   @id @default(cuid())
+  jobId     String
+  senderId  String
+  content   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  job    Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sender User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@index([senderId])
+}
+
+// ============================================================
+// REVIEWS
+// ============================================================
+
+model Review {
+  id         String    @id @default(cuid())
+  jobId      String    @unique
+  providerId String
+  rating     Int
+  title      String?
+  comment    String?   @db.Text
+  isPublic   Boolean   @default(true)
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  job      Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([rating])
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  reason     String?  @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}

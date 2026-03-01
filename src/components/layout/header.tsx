@@ -1,0 +1,106 @@
+"use client";
+
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu, Wrench } from "lucide-react";
+import { useState } from "react";
+import { useTranslations } from "@/components/locale-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
+
+export function Header() {
+  const [open, setOpen] = useState(false);
+  const t = useTranslations();
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+            <Wrench className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-bold tracking-tight">Werkspot</span>
+        </Link>
+
+        <nav className="hidden items-center gap-6 md:flex">
+          <Link
+            href="/so-funktionierts"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t.nav.howItWorks}
+          </Link>
+          <Link
+            href="/kategorien"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t.nav.categories}
+          </Link>
+          <Link
+            href="/preise"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t.nav.forCraftsmen}
+          </Link>
+        </nav>
+
+        <div className="hidden items-center gap-3 md:flex">
+          <LanguageSwitcher />
+          <Button variant="ghost" asChild>
+            <Link href="/anmelden">{t.nav.login}</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/registrieren">{t.nav.register}</Link>
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 md:hidden">
+          <LanguageSwitcher />
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px]">
+              <nav className="flex flex-col gap-4 pt-8">
+                <Link
+                  href="/so-funktionierts"
+                  className="text-lg font-medium"
+                  onClick={() => setOpen(false)}
+                >
+                  {t.nav.howItWorks}
+                </Link>
+                <Link
+                  href="/kategorien"
+                  className="text-lg font-medium"
+                  onClick={() => setOpen(false)}
+                >
+                  {t.nav.categories}
+                </Link>
+                <Link
+                  href="/preise"
+                  className="text-lg font-medium"
+                  onClick={() => setOpen(false)}
+                >
+                  {t.nav.forCraftsmen}
+                </Link>
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button variant="outline" asChild>
+                    <Link href="/anmelden" onClick={() => setOpen(false)}>
+                      {t.nav.login}
+                    </Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/registrieren" onClick={() => setOpen(false)}>
+                      {t.nav.register}
+                    </Link>
+                  </Button>
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  );
+}
