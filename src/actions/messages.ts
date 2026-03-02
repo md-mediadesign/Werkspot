@@ -24,7 +24,7 @@ export async function sendMessage(jobId: string, content: string) {
   if (!job) return { error: "Auftrag nicht gefunden." };
 
   const isClient = job.client.userId === session.user.id;
-  const isProvider = job.bids.some((b) => b.provider.userId === session.user.id);
+  const isProvider = job.bids.some((b: any) => b.provider.userId === session.user.id);
 
   if (!isClient && !isProvider) {
     return { error: "Nicht autorisiert." };
