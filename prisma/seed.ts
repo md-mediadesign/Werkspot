@@ -92,19 +92,21 @@ async function main() {
           description:
             "Erfahrener Handwerker mit über 15 Jahren Berufserfahrung. Spezialisiert auf Elektrik, Sanitär und allgemeine Reparaturen.",
           serviceRadius: 30,
-          categories: {
-            create: categories.map((cat) => ({ categoryId: cat.id })),
-          },
-          subscription: {
-            create: {
-              tier: "PRO",
-              status: "TRIALING",
-              trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              currentPeriodStart: new Date(),
-              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              monthlyAwardsLimit: 10,
-            },
-          },
+	  categories: {
+  	    create: categories.map((cat: { id: string }) => ({
+    	      categoryId: cat.id,
+  	    })),
+	  },
+	  subscription: {
+  	    create: {
+    	      tier: "PRO",
+    	      status: "TRIALING",
+  	      trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    	      currentPeriodStart: new Date(),
+    	      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  	      monthlyAwardsLimit: 10,
+ 	    },
+	  },
         },
       },
     },
