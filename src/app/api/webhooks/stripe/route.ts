@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, STRIPE_PLANS } from "@/lib/stripe";
+import { getStripe, STRIPE_PLANS } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import type { SubscriptionTier } from "@prisma/client";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export async function POST(req: NextRequest) {
+  let stripeClient;
+  try {
+    stripeClient = getStripe();
+  } catch {
+    return NextResponse.json({ error: "Stripe not configured" }, { status: 400 });
+  }
+
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
 
@@ -15,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = stripeClient.webhooks.constructEvent(
       body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
@@ -37,7 +44,7 @@ export async function POST(req: NextRequest) {
 
         if (providerId && tier && stripeSubscriptionId) {
           const plan = STRIPE_PLANS[tier];
-          const stripeSub: any = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+          const stripeSub: any = await stripeClient.subscriptions.retrieve(stripeSubscriptionId);
 
           await db.subscription.update({
             where: { providerId },
@@ -66,7 +73,7 @@ export async function POST(req: NextRequest) {
           });
 
           if (subscription) {
-            const stripeSub: any = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+            const stripeSub: any = await stripeClient.subscriptions.retrieve(stripeSubscriptionId);
 
             await db.subscription.update({
               where: { id: subscription.id },

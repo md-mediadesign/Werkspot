@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { stripe, STRIPE_PLANS } from "@/lib/stripe";
+import { getStripe, STRIPE_PLANS } from "@/lib/stripe";
 import type { SubscriptionTier } from "@prisma/client";
 
 export async function createCheckoutSession(tier: SubscriptionTier) {
@@ -27,7 +27,7 @@ export async function createCheckoutSession(tier: SubscriptionTier) {
   let stripeCustomerId = provider.subscription.stripeCustomerId;
 
   if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: session.user.email,
       name: session.user.name,
       metadata: {
@@ -43,7 +43,7 @@ export async function createCheckoutSession(tier: SubscriptionTier) {
     });
   }
 
-  const checkoutSession = await stripe.checkout.sessions.create({
+  const checkoutSession = await getStripe().checkout.sessions.create({
     customer: stripeCustomerId,
     mode: "subscription",
     payment_method_types: ["card"],
@@ -74,7 +74,7 @@ export async function createPortalSession() {
     return { error: "Kein Stripe-Konto gefunden." };
   }
 
-  const portalSession = await stripe.billingPortal.sessions.create({
+  const portalSession = await getStripe().billingPortal.sessions.create({
     customer: provider.subscription.stripeCustomerId,
     return_url: `${process.env.NEXT_PUBLIC_APP_URL}/anbieter/abo`,
   });
